@@ -1,5 +1,6 @@
 package com.paperboy.connector;
 
+import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
@@ -52,22 +53,19 @@ public class MessagingService implements MessageSender {
             jedisPool.getResource().subscribe(new JedisPubSub() {
                 @Override
                 public void onMessage(String channel, String message) {
-                    AuthorizationMessage msgIn;
-                    AuthorizationMessage msgOut;
                     try {
-                        msgIn = objectMapper.readValue(message, AuthorizationMessage.class);
-                        msgOut = authorizationTokenService.authorize(msgIn.getToken(), msgIn.getWsId());
+                        AuthorizationMessage msgIn = objectMapper.readValue(message, AuthorizationMessage.class);
+                        AuthorizationMessage msgOut = authorizationTokenService.authorize(msgIn.getToken(), msgIn.getWsId());
+                        sendMessage("paperboy-subscription-authorized", msgOut);
+                        LOG.info(String.format("Successful authorization for '%s'.", msgOut.getWsId()));
+                        paperboyCallbackHandler.onSubscription(MessagingService.this, msgOut.getUserId(), msgOut.getChannel());
                     } catch (JsonProcessingException e) {
                         LOG.error("Could not deserialize subscription request!", e);
-                        throw new IllegalArgumentException("Could not deserialize subscription request!", e);
+                    } catch (JWTVerificationException e) {
+                        LOG.error("Error during token verification!", e);
                     } catch (Exception e) {
-                        LOG.error("Error during authorization!", e);
-                        throw e;
+                        LOG.error("Unexpected error during authorization!", e);
                     }
-
-                    sendMessage("paperboy-subscription-authorized", msgOut);
-                    LOG.info(String.format("Successful authorization for '%s'.", msgOut.getWsId()));
-                    paperboyCallbackHandler.onSubscription(MessagingService.this, msgOut.getUserId(), msgOut.getChannel());
                 }
             }, "paperboy-subscription-request");
         });
