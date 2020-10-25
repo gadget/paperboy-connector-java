@@ -48,6 +48,11 @@ public class MessagingService implements MessageSender {
         sendMessage("paperboy-message", msg);
     }
 
+    public void sendSubscriptionCloseMessage(String userId, String channel) {
+        AuthorizationMessage msg = new AuthorizationMessage(null, null, userId, channel);
+        sendMessage("paperboy-subscription-close", msg);
+    }
+
     public void startListening() {
         executorService.submit(() -> {
             jedisPool.getResource().subscribe(new JedisPubSub() {

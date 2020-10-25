@@ -41,4 +41,8 @@ public class PaperboyConnector {
         messagingService.sendToChannel(channel, payload);
     }
 
+    public void closeSubscription(String userId, String channel) {
+        messagingService.sendSubscriptionCloseMessage(userId, channel);
+    }
+
 }
