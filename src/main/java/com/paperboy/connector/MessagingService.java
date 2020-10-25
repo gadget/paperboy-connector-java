@@ -2,6 +2,8 @@ package com.paperboy.connector;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPubSub;
 
@@ -9,6 +11,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MessagingService implements MessageSender {
+
+    private static final Log LOG = LogFactory.getLog(MessagingService.class);
 
     private final JedisPool jedisPool;
     private final AuthorizationTokenService authorizationTokenService;
@@ -29,7 +33,7 @@ public class MessagingService implements MessageSender {
         try {
             jedisPool.getResource().publish(channel, objectMapper.writeValueAsString(msg));
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Could not serialize message!", e);
+            throw new IllegalArgumentException("Could not serialize message!", e);
         }
     }
 
@@ -43,20 +47,26 @@ public class MessagingService implements MessageSender {
         sendMessage("paperboy-message", msg);
     }
 
-    // subscribes to messaging backend (Redis) for connection requests
     public void startListening() {
         executorService.submit(() -> {
             jedisPool.getResource().subscribe(new JedisPubSub() {
                 @Override
                 public void onMessage(String channel, String message) {
                     AuthorizationMessage msgIn;
+                    AuthorizationMessage msgOut;
                     try {
                         msgIn = objectMapper.readValue(message, AuthorizationMessage.class);
+                        msgOut = authorizationTokenService.authorize(msgIn.getToken(), msgIn.getWsId());
                     } catch (JsonProcessingException e) {
-                        throw new RuntimeException("Could not deserialize connection request!", e);
+                        LOG.error("Could not deserialize authorization message!", e);
+                        throw new IllegalArgumentException("Could not deserialize authorization message!", e);
+                    } catch (Exception e) {
+                        LOG.error("Error during authorization!", e);
+                        throw e;
                     }
-                    AuthorizationMessage msgOut = authorizationTokenService.authorize(msgIn.getToken(), msgIn.getWsId());
+
                     sendMessage("paperboy-connection-authorized", msgOut);
+                    LOG.info(String.format("Successful authorization for '%s'.", msgOut.getWsId()));
                     paperboyCallbackHandler.onUserConnected(MessagingService.this, msgOut.getUserId(), msgOut.getChannel());
                 }
             }, "paperboy-connection-request");

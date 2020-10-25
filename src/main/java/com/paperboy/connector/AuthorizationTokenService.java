@@ -21,7 +21,7 @@ public class AuthorizationTokenService {
     public AuthorizationTokenService(PaperboyCallbackHandler paperboyCallbackHandler) {
         String secret = System.getenv(JWT_SECRET_ENV_KEY);
         if (StringUtils.isBlank(secret)) {
-            throw new RuntimeException(String.format("Missing environment variable '%s'!", JWT_SECRET_ENV_KEY));
+            throw new IllegalArgumentException(String.format("Missing environment variable '%s'!", JWT_SECRET_ENV_KEY));
         }
 
         this.paperboyCallbackHandler = paperboyCallbackHandler;
@@ -33,7 +33,7 @@ public class AuthorizationTokenService {
 
     public String generateToken(String userId, String channel) {
         if (!paperboyCallbackHandler.hasAccess(userId, channel)) {
-            throw new RuntimeException(String.format("Access to channel '%s' for user '%s' is denied!", channel, userId));
+            throw new IllegalStateException(String.format("Access to channel '%s' for user '%s' is denied!", channel, userId));
         }
 
         return createToken(userId, channel);
@@ -54,7 +54,7 @@ public class AuthorizationTokenService {
         String userId = jwt.getClaim("userId").asString();
         String channel = jwt.getClaim("channel").asString();
         if (!paperboyCallbackHandler.hasAccess(userId, channel)) {
-            throw new RuntimeException(String.format("Access to channel '%s' for user '%s' denied!", channel, userId));
+            throw new IllegalStateException(String.format("Access to channel '%s' for user '%s' denied!", channel, userId));
         }
 
         return new AuthorizationMessage(wsId, null, userId, channel);

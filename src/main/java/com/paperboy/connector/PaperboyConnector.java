@@ -1,11 +1,15 @@
 package com.paperboy.connector;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import redis.clients.jedis.JedisPool;
 
 import java.security.Principal;
 
 public class PaperboyConnector {
+
+    private static final Log LOG = LogFactory.getLog(PaperboyConnector.class);
 
     private final AuthorizationTokenService authorizationTokenService;
     private final MessagingService messagingService;
@@ -17,13 +21,15 @@ public class PaperboyConnector {
 
     public void startListening() {
         messagingService.startListening();
+        LOG.info("Paperboy listener started.");
     }
 
     public String requestToken(Principal principal, String channel) {
         if (principal == null || StringUtils.isBlank(principal.getName())) {
-            throw new RuntimeException("Authentication required!");
+            throw new IllegalArgumentException("Authentication required!");
         }
 
+        LOG.debug(String.format("Generating token for '%s' to access channel '%s'.", principal.getName(), channel));
         return authorizationTokenService.generateToken(principal.getName(), channel);
     }
 
