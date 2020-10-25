@@ -58,18 +58,18 @@ public class MessagingService implements MessageSender {
                         msgIn = objectMapper.readValue(message, AuthorizationMessage.class);
                         msgOut = authorizationTokenService.authorize(msgIn.getToken(), msgIn.getWsId());
                     } catch (JsonProcessingException e) {
-                        LOG.error("Could not deserialize authorization message!", e);
-                        throw new IllegalArgumentException("Could not deserialize authorization message!", e);
+                        LOG.error("Could not deserialize subscription request!", e);
+                        throw new IllegalArgumentException("Could not deserialize subscription request!", e);
                     } catch (Exception e) {
                         LOG.error("Error during authorization!", e);
                         throw e;
                     }
 
-                    sendMessage("paperboy-connection-authorized", msgOut);
+                    sendMessage("paperboy-subscription-authorized", msgOut);
                     LOG.info(String.format("Successful authorization for '%s'.", msgOut.getWsId()));
-                    paperboyCallbackHandler.onUserConnected(MessagingService.this, msgOut.getUserId(), msgOut.getChannel());
+                    paperboyCallbackHandler.onSubscription(MessagingService.this, msgOut.getUserId(), msgOut.getChannel());
                 }
-            }, "paperboy-connection-request");
+            }, "paperboy-subscription-request");
         });
     }
 
