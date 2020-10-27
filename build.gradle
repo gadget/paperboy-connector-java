@@ -1,0 +1,19 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.paperboy.connector'
+version = '1.0-SNAPSHOT'
+sourceCompatibility = '11'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'redis.clients:jedis:3.3.0'
+    implementation 'com.auth0:java-jwt:3.11.0'
+    implementation 'org.apache.commons:commons-lang3:3.10'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.11.3'
+    implementation 'commons-logging:commons-logging:1.2'
+}
