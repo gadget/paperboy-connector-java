@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'maven-publish'
 }
 
 group = 'com.paperboy.connector'
@@ -16,4 +17,15 @@ dependencies {
     implementation 'org.apache.commons:commons-lang3:3.10'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.11.3'
     implementation 'commons-logging:commons-logging:1.2'
+}
+
+publishing {
+    publications {
+        javacomp(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
 }
