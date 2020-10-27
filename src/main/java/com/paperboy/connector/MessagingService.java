@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPubSub;
 
@@ -32,7 +33,9 @@ public class MessagingService implements MessageSender {
 
     private void sendMessage(String channel, Object msg) {
         try {
-            jedisPool.getResource().publish(channel, objectMapper.writeValueAsString(msg));
+            try (Jedis jedis = jedisPool.getResource()) {
+                jedis.publish(channel, objectMapper.writeValueAsString(msg));
+            }
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Could not serialize message!", e);
         }
