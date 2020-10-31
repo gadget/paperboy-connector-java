@@ -12,11 +12,14 @@ repositories {
 }
 
 dependencies {
-    implementation 'redis.clients:jedis:3.3.0'
     implementation 'com.auth0:java-jwt:3.11.0'
     implementation 'org.apache.commons:commons-lang3:3.10'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.11.3'
     implementation 'commons-logging:commons-logging:1.2'
+
+    compileOnly 'redis.clients:jedis:3.3.0'
+    compileOnly 'com.rabbitmq:amqp-client:5.10.0'
+    compileOnly 'com.google.cloud:google-cloud-pubsub:1.108.6'
 }
 
 publishing {

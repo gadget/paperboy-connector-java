@@ -3,7 +3,6 @@ package com.paperboy.connector;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import redis.clients.jedis.JedisPool;
 
 import java.security.Principal;
 
@@ -14,13 +13,13 @@ public class PaperboyConnector {
     private final AuthorizationTokenService authorizationTokenService;
     private final MessagingService messagingService;
 
-    public PaperboyConnector(JedisPool jedisPool, PaperboyCallbackHandler paperboyCallbackHandler) {
+    public PaperboyConnector(MessagingBackend messagingBackend, PaperboyCallbackHandler paperboyCallbackHandler) {
         this.authorizationTokenService = new AuthorizationTokenService(paperboyCallbackHandler);
-        this.messagingService = new MessagingService(jedisPool, this.authorizationTokenService, paperboyCallbackHandler);
+        this.messagingService = new MessagingService(messagingBackend, this.authorizationTokenService, paperboyCallbackHandler);
     }
 
-    public void startListening() {
-        messagingService.startListening();
+    public void init() {
+        messagingService.init();
         LOG.info("Paperboy listener started.");
     }
 
