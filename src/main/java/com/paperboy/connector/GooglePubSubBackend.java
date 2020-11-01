@@ -12,13 +12,13 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class GcpPubSubBackend implements MessagingBackend {
+public class GooglePubSubBackend implements MessagingBackend {
 
     private static final String SUBSCRIPTION_SUFFIX = "-sub-connector";
     private final ObjectMapper objectMapper;
     private final ConcurrentHashMap<String, Publisher> publishers = new ConcurrentHashMap<>();
 
-    public GcpPubSubBackend(JedisPool jedisPool) {
+    public GooglePubSubBackend(JedisPool jedisPool) {
         this.objectMapper = new ObjectMapper();
         // TODO: configure objectMapper
     }

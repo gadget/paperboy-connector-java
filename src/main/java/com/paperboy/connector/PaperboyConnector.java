@@ -23,7 +23,7 @@ public class PaperboyConnector {
         LOG.info("Paperboy listener started.");
     }
 
-    public String requestToken(Principal principal, String channel) {
+    public String generateToken(Principal principal, String channel) {
         if (principal == null || StringUtils.isBlank(principal.getName())) {
             throw new IllegalArgumentException("Authentication required!");
         }
