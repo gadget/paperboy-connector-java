@@ -55,8 +55,10 @@ public class RabbitBackend implements MessagingBackend {
     @Override
     public void listen(String queue, MessageHandler messageHandler) {
         try {
-            connectionFactory.newConnection().createChannel().basicConsume(queue, (consumerTag, message) -> {
+            Channel channel = connectionFactory.newConnection().createChannel();
+            channel.basicConsume(queue, false, (consumerTag, message) -> {
                 messageHandler.handleMessage(queue, new String(message.getBody()));
+                channel.basicAck(message.getEnvelope().getDeliveryTag(), false);
             }, consumerTag -> {
                 // nop
             });
