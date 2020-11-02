@@ -19,7 +19,7 @@ public interface MessagingBackend {
     void publish(String topic, Object msg);
 
     /**
-     * Starts listening to a given queue and registers a callback.
+     * Starts listening to a given queue and registers a callback. Regular queue-like messaging should be used here, only a single backend instance should process a message, no fan-out/broadcast!
      *
      * @param queue          name of the queue
      * @param messageHandler callback

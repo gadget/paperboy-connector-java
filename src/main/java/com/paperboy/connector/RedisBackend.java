@@ -40,6 +40,7 @@ public class RedisBackend implements MessagingBackend {
         while (true) {
             List<String> messages = jedis.blpop(10, queue);
             if (messages != null) {
+                // Redis always returns the name of the list as the 1st element so we skip
                 messages.stream().skip(1).forEach(m -> {
                     messageHandler.handleMessage(queue, m);
                 });

@@ -44,7 +44,7 @@ public class RabbitBackend implements MessagingBackend {
                 channel = publisherConnection.createChannel();
                 channelThreadLocal.set(channel);
             }
-            channel.basicPublish("", topic, null, msgString.getBytes());
+            channel.basicPublish(topic, "", null, msgString.getBytes());
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Could not serialize message!", e);
         } catch (IOException e) {
@@ -56,7 +56,7 @@ public class RabbitBackend implements MessagingBackend {
     public void listen(String queue, MessageHandler messageHandler) {
         try {
             connectionFactory.newConnection().createChannel().basicConsume(queue, (consumerTag, message) -> {
-                messageHandler.handleMessage(queue, String.valueOf(message.getBody()));
+                messageHandler.handleMessage(queue, new String(message.getBody()));
             }, consumerTag -> {
                 // nop
             });

@@ -47,6 +47,7 @@ public class MessagingService implements MessageSender {
         messagingBackend.init();
         executorService.submit(() -> {
             try {
+                LOG.info("Starting Paperboy subscription request listener...");
                 messagingBackend.listen("paperboy-subscription-request", (channel, message) -> {
                     try {
                         AuthorizationMessage msgIn = objectMapper.readValue(message, AuthorizationMessage.class);
@@ -62,7 +63,6 @@ public class MessagingService implements MessageSender {
                         LOG.error("Unexpected error during authorization!", e);
                     }
                 });
-                LOG.info("Paperboy subscription request listener started.");
             } catch (Exception e) {
                 LOG.error("Unexpected error during topic subscription!", e);
             }

@@ -20,7 +20,6 @@ public class PaperboyConnector {
 
     public void init() {
         messagingService.init();
-        LOG.info("Paperboy listener started.");
     }
 
     public String generateToken(Principal principal, String channel) {
