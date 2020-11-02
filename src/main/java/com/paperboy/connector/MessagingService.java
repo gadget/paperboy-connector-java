@@ -64,7 +64,7 @@ public class MessagingService implements MessageSender {
                     }
                 });
             } catch (Exception e) {
-                LOG.error("Unexpected error during topic subscription!", e);
+                LOG.error("Unexpected error during initialization of request listener!", e);
             }
         });
     }
