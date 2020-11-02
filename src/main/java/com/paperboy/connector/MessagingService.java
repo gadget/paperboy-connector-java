@@ -46,21 +46,26 @@ public class MessagingService implements MessageSender {
     public void init() {
         messagingBackend.init();
         executorService.submit(() -> {
-            messagingBackend.subscribe("paperboy-subscription-request", (channel, message) -> {
-                try {
-                    AuthorizationMessage msgIn = objectMapper.readValue(message, AuthorizationMessage.class);
-                    AuthorizationMessage msgOut = authorizationTokenService.authorize(msgIn.getToken(), msgIn.getWsId());
-                    messagingBackend.publish("paperboy-subscription-authorized", msgOut);
-                    LOG.info(String.format("Successful authorization for '%s'.", msgOut.getWsId()));
-                    paperboyCallbackHandler.onSubscription(MessagingService.this, msgOut.getUserId(), msgOut.getChannel());
-                } catch (JsonProcessingException e) {
-                    LOG.error("Could not deserialize subscription request!", e);
-                } catch (JWTVerificationException e) {
-                    LOG.error("Error during token verification!", e);
-                } catch (Exception e) {
-                    LOG.error("Unexpected error during authorization!", e);
-                }
-            });
+            try {
+                messagingBackend.listen("paperboy-subscription-request", (channel, message) -> {
+                    try {
+                        AuthorizationMessage msgIn = objectMapper.readValue(message, AuthorizationMessage.class);
+                        AuthorizationMessage msgOut = authorizationTokenService.authorize(msgIn.getToken(), msgIn.getWsId());
+                        messagingBackend.publish("paperboy-subscription-authorized", msgOut);
+                        LOG.info(String.format("Successful authorization for '%s'.", msgOut.getWsId()));
+                        paperboyCallbackHandler.onSubscription(MessagingService.this, msgOut.getUserId(), msgOut.getChannel());
+                    } catch (JsonProcessingException e) {
+                        LOG.error("Could not deserialize subscription request!", e);
+                    } catch (JWTVerificationException e) {
+                        LOG.error("Error during token verification!", e);
+                    } catch (Exception e) {
+                        LOG.error("Unexpected error during authorization!", e);
+                    }
+                });
+                LOG.info("Paperboy subscription request listener started.");
+            } catch (Exception e) {
+                LOG.error("Unexpected error during topic subscription!", e);
+            }
         });
     }
 

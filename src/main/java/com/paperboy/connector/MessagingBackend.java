@@ -14,16 +14,16 @@ public interface MessagingBackend {
      * Publish a message on the given topic/channel.
      *
      * @param topic name of the target topic
-     * @param msg POJO of the message
+     * @param msg   POJO of the message
      */
     void publish(String topic, Object msg);
 
     /**
-     * Subscribes to a given topic/channel and registers a callback.
+     * Starts listening to a given queue and registers a callback.
      *
-     * @param topic name of the topic to subscribe
+     * @param queue          name of the queue
      * @param messageHandler callback
      */
-    void subscribe(String topic, MessageHandler messageHandler);
+    void listen(String queue, MessageHandler messageHandler);
 
 }

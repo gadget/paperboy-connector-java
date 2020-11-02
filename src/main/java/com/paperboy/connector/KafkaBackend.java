@@ -13,7 +13,7 @@ public class KafkaBackend implements MessagingBackend {
     }
 
     @Override
-    public void subscribe(String topic, MessageHandler messageHandler) {
+    public void listen(String queue, MessageHandler messageHandler) {
 
     }
 

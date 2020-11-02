@@ -4,7 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.JedisPubSub;
+
+import java.util.List;
 
 public class RedisBackend implements MessagingBackend {
 
@@ -34,12 +35,15 @@ public class RedisBackend implements MessagingBackend {
     }
 
     @Override
-    public void subscribe(String topic, MessageHandler messageHandler) {
-        jedisPool.getResource().subscribe(new JedisPubSub() {
-            @Override
-            public void onMessage(String channel, String message) {
-                messageHandler.handleMessage(channel, message);
+    public void listen(String queue, MessageHandler messageHandler) {
+        Jedis jedis = jedisPool.getResource();
+        while (true) {
+            List<String> messages = jedis.blpop(10, queue);
+            if (messages != null) {
+                messages.stream().skip(1).forEach(m -> {
+                    messageHandler.handleMessage(queue, m);
+                });
             }
-        }, topic);
+        }
     }
 }

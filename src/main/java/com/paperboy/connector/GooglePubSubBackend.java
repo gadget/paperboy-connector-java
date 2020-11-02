@@ -51,9 +51,9 @@ public class GooglePubSubBackend implements MessagingBackend {
     }
 
     @Override
-    public void subscribe(String topic, MessageHandler messageHandler) {
-        Subscriber subscriber = Subscriber.newBuilder(topic + SUBSCRIPTION_SUFFIX, (PubsubMessage message, AckReplyConsumer consumer) -> {
-            messageHandler.handleMessage(topic, message.getData().toStringUtf8());
+    public void listen(String queue, MessageHandler messageHandler) {
+        Subscriber subscriber = Subscriber.newBuilder(queue + SUBSCRIPTION_SUFFIX, (PubsubMessage message, AckReplyConsumer consumer) -> {
+            messageHandler.handleMessage(queue, message.getData().toStringUtf8());
             consumer.ack();
         }).build();
         subscriber.startAsync().awaitRunning();
