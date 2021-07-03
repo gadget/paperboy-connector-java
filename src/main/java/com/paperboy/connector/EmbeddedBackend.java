@@ -78,7 +78,6 @@ public class EmbeddedBackend implements MessagingBackend {
         callService("/subscribeTopic/" + queue, caller);
     }
 
-    // TODO: expose REST '/messageCallback/:topic'
     public void messageCallback(String topic, Object msg) {
         LOG.info(String.format("Message callback on topic '%s'.", topic));
         if (messageHandlers.containsKey(topic)) {

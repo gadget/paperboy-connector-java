@@ -12,10 +12,14 @@ public class PaperboyConnector {
 
     private final AuthorizationTokenService authorizationTokenService;
     private final MessagingService messagingService;
+    private EmbeddedBackend embeddedBackend;
 
     public PaperboyConnector(MessagingBackend messagingBackend, PaperboyCallbackHandler paperboyCallbackHandler) {
         this.authorizationTokenService = new AuthorizationTokenService(paperboyCallbackHandler);
         this.messagingService = new MessagingService(messagingBackend, this.authorizationTokenService, paperboyCallbackHandler);
+        if (messagingBackend instanceof EmbeddedBackend) {
+            embeddedBackend = (EmbeddedBackend) messagingBackend;
+        }
     }
 
     public void init() {
@@ -43,4 +47,10 @@ public class PaperboyConnector {
         messagingService.sendSubscriptionCloseMessage(userId, channel);
     }
 
+    public void messageCallbackForEmbeddedBackend(String topic, Object msg) {
+        if (embeddedBackend != null) {
+            LOG.debug(String.format("Message callback received for '%s'.", topic));
+            embeddedBackend.messageCallback(topic, msg);
+        }
+    }
 }
