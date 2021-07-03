@@ -47,10 +47,10 @@ public class PaperboyConnector {
         messagingService.sendSubscriptionCloseMessage(userId, channel);
     }
 
-    public void messageCallbackForEmbeddedBackend(String topic, Object msg) {
+    public void messageCallbackForEmbeddedBackend(String topic, Object msg, String providedEmbeddedBackendToken) {
         if (embeddedBackend != null) {
             LOG.debug(String.format("Message callback received for '%s'.", topic));
-            embeddedBackend.messageCallback(topic, msg);
+            embeddedBackend.messageCallback(topic, msg, providedEmbeddedBackendToken);
         }
     }
 }

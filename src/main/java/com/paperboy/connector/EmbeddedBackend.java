@@ -29,10 +29,11 @@ public class EmbeddedBackend implements MessagingBackend {
 
     private String localAddress;
     private HttpClient httpClient;
+    private String embeddedBackendToken;
     private ObjectMapper objectMapper;
 
-    public static void main(String[] args) {
-        new EmbeddedBackend().init();
+    public EmbeddedBackend(String embeddedBackendToken) {
+        this.embeddedBackendToken = embeddedBackendToken;
     }
 
     @Override
@@ -77,8 +78,11 @@ public class EmbeddedBackend implements MessagingBackend {
         callService("/subscribeTopic/" + queue, caller);
     }
 
-    public void messageCallback(String topic, Object msg) {
+    public void messageCallback(String topic, Object msg, String providedEmbeddedBackendToken) {
         LOG.info(String.format("Message callback on topic '%s'.", topic));
+        if (!this.embeddedBackendToken.equals(providedEmbeddedBackendToken)) {
+            throw new IllegalArgumentException("Invalid token for embedded backend!");
+        }
         if (messageHandlers.containsKey(topic)) {
             LOG.info("Message handler found, calling.");
             messageHandlers.get(topic).handleMessage(topic, msg.toString());
@@ -107,6 +111,7 @@ public class EmbeddedBackend implements MessagingBackend {
             HttpRequest post = HttpRequest.newBuilder()
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(msg)))
                     .header("Content-Type", "application/json")
+                    .header("PaperboyEmbeddedBackendToken", embeddedBackendToken)
                     .uri(URI.create(url))
                     .build();
             httpClient.send(post, HttpResponse.BodyHandlers.ofString());
