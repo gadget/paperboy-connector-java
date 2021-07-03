@@ -14,7 +14,6 @@ repositories {
 dependencies {
     implementation 'com.auth0:java-jwt:3.11.0'
     implementation 'org.apache.commons:commons-lang3:3.10'
-    implementation 'org.apache.httpcomponents:httpclient:4.5.13'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.11.3'
     implementation 'commons-logging:commons-logging:1.2'
     implementation 'org.jmdns:jmdns:3.5.7'

@@ -3,18 +3,16 @@ package com.paperboy.connector;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.HttpClientBuilder;
 
 import javax.jmdns.JmDNS;
 import javax.jmdns.ServiceInfo;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +39,7 @@ public class EmbeddedBackend implements MessagingBackend {
     public void init() {
         try {
             LOG.info("Initializing embedded backend...");
+            httpClient = HttpClient.newBuilder().build();
             localAddress = InetAddress.getLocalHost().getHostAddress();
             //httpClient = HttpClientBuilder.create().build();
             objectMapper = new ObjectMapper();
@@ -103,16 +102,18 @@ public class EmbeddedBackend implements MessagingBackend {
 
     private void callService(String service, String path, Object msg) {
         try {
-            this.httpClient = HttpClientBuilder.create().build();
             String url = service + path;
             LOG.info(String.format("Calling service '%s'.", url));
-            HttpPost post = new HttpPost(url);
-            HttpEntity entity = new StringEntity(objectMapper.writeValueAsString(msg));
-            post.setEntity(entity);
-            post.setHeader("Content-Type", "application/json");
-            HttpResponse response = httpClient.execute(post);
+            HttpRequest post = HttpRequest.newBuilder()
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(msg)))
+                    .header("Content-Type", "application/json")
+                    .uri(URI.create(url))
+                    .build();
+            httpClient.send(post, HttpResponse.BodyHandlers.ofString());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        } catch (InterruptedException e) {
+            throw new IllegalStateException(e);
         }
     }
 
