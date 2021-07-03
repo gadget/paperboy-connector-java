@@ -40,7 +40,7 @@ public class EmbeddedBackend implements MessagingBackend {
     public void init() {
         try {
             LOG.info("Initializing embedded backend...");
-            httpClient = HttpClient.newBuilder().build();
+            httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
             localAddress = InetAddress.getLocalHost().getHostAddress();
             //httpClient = HttpClientBuilder.create().build();
             objectMapper = new ObjectMapper();
