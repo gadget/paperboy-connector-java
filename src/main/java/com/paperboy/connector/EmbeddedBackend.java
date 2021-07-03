@@ -18,6 +18,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class EmbeddedBackend implements MessagingBackend {
@@ -25,16 +28,18 @@ public class EmbeddedBackend implements MessagingBackend {
     private static final Log LOG = LogFactory.getLog(EmbeddedBackend.class);
 
     private final Map<String, MessageHandler> messageHandlers = new ConcurrentHashMap<>();
-    private final List<String> embeddedBackendServices = new ArrayList<>();
+    private List<String> embeddedBackendServices = new ArrayList<>();
     private final AtomicInteger embeddedBackendServiceIdx = new AtomicInteger(0);
 
     private String localAddress;
     private HttpClient httpClient;
     private String embeddedBackendToken;
     private ObjectMapper objectMapper;
+    private ScheduledExecutorService executorService;
 
     public EmbeddedBackend(String embeddedBackendToken) {
         this.embeddedBackendToken = embeddedBackendToken;
+        this.executorService = Executors.newScheduledThreadPool(1);
     }
 
     @Override
@@ -47,21 +52,8 @@ public class EmbeddedBackend implements MessagingBackend {
                 localAddress = socket.getLocalAddress().getHostAddress();
             }
             objectMapper = new ObjectMapper();
-
-            JmDNS jmdns = JmDNS.create(InetAddress.getLocalHost());
-            ServiceInfo[] serviceInfos = jmdns.list("_paperboy-http._tcp.local.", 6000);
-            if (serviceInfos.length == 0) {
-                throw new IllegalStateException("No embedded backend found!");
-            }
-            for (ServiceInfo info : serviceInfos) {
-                String host = "localhost";
-                if (info.getHostAddresses() != null && info.getHostAddresses().length > 0) {
-                    host = info.getHostAddresses()[0];
-                }
-                LOG.info(String.format("Discovered embedded backend instance on paperboy node '%s:%d'.", host, info.getPort()));
-                embeddedBackendServices.add("http://" + host + ":" + info.getPort());
-            }
-            jmdns.close();
+            new ServiceDiscoveryTask().run(); // first we run synchronously, then schedule it
+            executorService.schedule(new ServiceDiscoveryTask(), 10, TimeUnit.SECONDS);
         } catch (IOException e) {
             new UncheckedIOException(e);
         }
@@ -159,6 +151,34 @@ public class EmbeddedBackend implements MessagingBackend {
 
         public void setRestPath(String restPath) {
             this.restPath = restPath;
+        }
+    }
+
+    private class ServiceDiscoveryTask implements Runnable {
+
+        @Override
+        public void run() {
+            LOG.info("Running service discovery...");
+            try {
+                List<String> tmp = new ArrayList<>();
+                JmDNS jmdns = JmDNS.create(InetAddress.getLocalHost());
+                ServiceInfo[] serviceInfos = jmdns.list("_paperboy-http._tcp.local.", 6000);
+                if (serviceInfos.length == 0) {
+                    throw new IllegalStateException("No embedded backend found!");
+                }
+                for (ServiceInfo info : serviceInfos) {
+                    String host = "localhost";
+                    if (info.getHostAddresses() != null && info.getHostAddresses().length > 0) {
+                        host = info.getHostAddresses()[0];
+                    }
+                    LOG.info(String.format("Discovered embedded backend instance on paperboy node '%s:%d'.", host, info.getPort()));
+                    tmp.add("http://" + host + ":" + info.getPort());
+                }
+                embeddedBackendServices = tmp;
+                jmdns.close();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 }
