@@ -58,7 +58,7 @@ public class EmbeddedBackend implements MessagingBackend {
             }
             objectMapper = new ObjectMapper();
             new ServiceDiscoveryTask().run(); // first we run synchronously, then schedule it
-            executorService.schedule(new ServiceDiscoveryTask(), 10, TimeUnit.SECONDS);
+            executorService.scheduleWithFixedDelay(new ServiceDiscoveryTask(), 10, 10, TimeUnit.SECONDS);
         } catch (IOException e) {
             new UncheckedIOException(e);
         }
