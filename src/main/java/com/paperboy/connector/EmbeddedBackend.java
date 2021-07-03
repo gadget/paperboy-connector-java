@@ -8,6 +8,7 @@ import javax.jmdns.JmDNS;
 import javax.jmdns.ServiceInfo;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -41,8 +42,10 @@ public class EmbeddedBackend implements MessagingBackend {
         try {
             LOG.info("Initializing embedded backend...");
             httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
-            localAddress = InetAddress.getLocalHost().getHostAddress();
-            //httpClient = HttpClientBuilder.create().build();
+            try (final DatagramSocket socket = new DatagramSocket()) {
+                socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
+                localAddress = socket.getLocalAddress().getHostAddress();
+            }
             objectMapper = new ObjectMapper();
 
             JmDNS jmdns = JmDNS.create(InetAddress.getLocalHost());
