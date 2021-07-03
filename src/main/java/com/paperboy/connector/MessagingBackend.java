@@ -26,4 +26,10 @@ public interface MessagingBackend {
      */
     void listen(String queue, MessageHandler messageHandler);
 
+    /**
+     * For cleanup.
+     */
+    default void close() {
+    }
+
 }

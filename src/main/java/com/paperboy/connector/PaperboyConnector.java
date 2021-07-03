@@ -26,6 +26,10 @@ public class PaperboyConnector {
         messagingService.init();
     }
 
+    public void close() {
+        messagingService.close();
+    }
+
     public String generateToken(Principal principal, String channel) {
         if (principal == null || StringUtils.isBlank(principal.getName())) {
             throw new IllegalArgumentException("Authentication required!");

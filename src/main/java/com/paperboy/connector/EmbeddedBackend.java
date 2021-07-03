@@ -43,6 +43,11 @@ public class EmbeddedBackend implements MessagingBackend {
     }
 
     @Override
+    public void close() {
+        executorService.shutdown();
+    }
+
+    @Override
     public void init() {
         try {
             LOG.info("Initializing embedded backend...");

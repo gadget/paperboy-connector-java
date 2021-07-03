@@ -69,4 +69,8 @@ public class MessagingService implements MessageSender {
         });
     }
 
+    public void close() {
+        messagingBackend.close();
+        executorService.shutdown();
+    }
 }
