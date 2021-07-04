@@ -133,9 +133,9 @@ public class EmbeddedBackend implements MessagingBackend {
             }
             throw new EmbeddedInstanceRemoteException(String.format("Communication error with service: '%s'!", service));
         } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            throw new EmbeddedInstanceRemoteException(e);
         } catch (InterruptedException e) {
-            throw new IllegalStateException(e);
+            throw new EmbeddedInstanceRemoteException(e);
         }
     }
 
@@ -151,9 +151,9 @@ public class EmbeddedBackend implements MessagingBackend {
                     .build();
             httpClient.send(post, HttpResponse.BodyHandlers.ofString());
         } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            throw new EmbeddedInstanceRemoteException(e);
         } catch (InterruptedException e) {
-            throw new IllegalStateException(e);
+            throw new EmbeddedInstanceRemoteException(e);
         }
     }
 
@@ -247,10 +247,11 @@ public class EmbeddedBackend implements MessagingBackend {
                 }
             } catch (EmbeddedInstanceRemoteException e) {
                 String currentService = nextService();
+                this.service = currentService;
+                this.instanceId = "N/A";
                 try {
                     LOG.info(String.format("Switching from unusable embedded service '%s' -> '%s'.", service, currentService));
                     String currentInstanceId = instanceIdFor(currentService);
-                    this.service = currentService;
                     this.instanceId = currentInstanceId;
                     callService(this.service, "/subscribeTopic/" + queue, caller);
                 } catch (EmbeddedInstanceRemoteException ee) {
