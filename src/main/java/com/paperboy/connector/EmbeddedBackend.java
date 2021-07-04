@@ -88,7 +88,9 @@ public class EmbeddedBackend implements MessagingBackend {
             // scheduling listener task so that in case of the embedded node fails we re-register on an alive node
             listenerExecutor.scheduleWithFixedDelay(new ListenerTask(queue, caller, service, instanceId), 2, 2, TimeUnit.SECONDS);
         } catch (EmbeddedInstanceRemoteException e) {
+            // in case nextService, instanceIdFor or callService has failed before scheduling
             LOG.error(e);
+            listenerExecutor.scheduleWithFixedDelay(new ListenerTask(queue, caller, "N/A", "N/A"), 2, 2, TimeUnit.SECONDS);
         }
     }
 
@@ -120,7 +122,10 @@ public class EmbeddedBackend implements MessagingBackend {
         }
     }
 
-    private String nextService() {
+    private String nextService() throws EmbeddedInstanceRemoteException {
+        if (embeddedBackendServices.size() == 0) {
+            throw new EmbeddedInstanceRemoteException("No available embedded backend!");
+        }
         int nextIdx = embeddedBackendServiceIdx.incrementAndGet();
         if (nextIdx >= embeddedBackendServices.size()) {
             embeddedBackendServiceIdx.set(0);
@@ -142,12 +147,10 @@ public class EmbeddedBackend implements MessagingBackend {
                 LOG.info(String.format("Embedded service '%s' has instance id: '%s'.", service, instanceId));
                 return instanceId;
             }
-            throw new EmbeddedInstanceRemoteException(String.format("Communication error with service: '%s'!", service));
-        } catch (IOException e) {
-            throw new EmbeddedInstanceRemoteException(e);
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             throw new EmbeddedInstanceRemoteException(e);
         }
+        throw new EmbeddedInstanceRemoteException(String.format("Communication error with service: '%s'!", service));
     }
 
     private void callService(String service, String path, Object msg) throws EmbeddedInstanceRemoteException {
@@ -161,9 +164,7 @@ public class EmbeddedBackend implements MessagingBackend {
                     .uri(URI.create(url))
                     .build();
             httpClient.send(post, HttpResponse.BodyHandlers.ofString());
-        } catch (IOException e) {
-            throw new EmbeddedInstanceRemoteException(e);
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             throw new EmbeddedInstanceRemoteException(e);
         }
     }
@@ -260,11 +261,11 @@ public class EmbeddedBackend implements MessagingBackend {
                 }
             } catch (EmbeddedInstanceRemoteException e) {
                 // in case the embedded instance we currently listing on has failed
-                String currentService = nextService(); // we try picking another one
-                LOG.info(String.format("Switching from unusable embedded service '%s' -> '%s'.", service, currentService));
-                this.service = currentService; // switching onto the new one
-                this.instanceId = "N/A";
                 try {
+                    String currentService = nextService(); // we try picking another one
+                    LOG.info(String.format("Switching from unusable embedded service '%s' -> '%s'.", service, currentService));
+                    this.service = currentService; // switching onto the new one
+                    this.instanceId = "N/A";
                     String currentInstanceId = instanceIdFor(currentService); // instanceId for the new one
                     this.instanceId = currentInstanceId;
                     callService(this.service, "/subscribeTopic/" + queue, caller);
