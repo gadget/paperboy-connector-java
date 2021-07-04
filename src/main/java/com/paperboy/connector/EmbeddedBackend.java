@@ -214,7 +214,7 @@ public class EmbeddedBackend implements MessagingBackend {
                 JmDNS jmdns = JmDNS.create(InetAddress.getLocalHost());
                 ServiceInfo[] serviceInfos = jmdns.list("_paperboy-http._tcp.local.", 6000);
                 if (serviceInfos.length == 0) {
-                    log.error("No embedded backend found!");
+                    LOG.error("No embedded backend found!");
                 } else {
                     List<String> tmp = new ArrayList<>();
                     for (ServiceInfo info : serviceInfos) {
