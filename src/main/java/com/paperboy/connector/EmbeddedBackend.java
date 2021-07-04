@@ -73,7 +73,13 @@ public class EmbeddedBackend implements MessagingBackend {
     public void publish(String topic, Object msg) {
         LOG.info(String.format("Publishing message on topic '%s'.", topic));
         // writes are sent to all nodes
-        callAllServices("/pushMessage/" + topic, msg);
+        for (String service : embeddedBackendServices) {
+            try {
+                callService(service, "/pushMessage/" + topic, msg);
+            } catch (EmbeddedInstanceRemoteException e) {
+                LOG.error(e);
+            }
+        }
     }
 
     @Override
@@ -109,16 +115,6 @@ public class EmbeddedBackend implements MessagingBackend {
         if (messageHandlers.containsKey(topic)) {
             LOG.info("Message handler found, calling.");
             messageHandlers.get(topic).handleMessage(topic, msg.toString());
-        }
-    }
-
-    private void callAllServices(String path, Object msg) {
-        for (String service : embeddedBackendServices) {
-            try {
-                callService(service, path, msg);
-            } catch (EmbeddedInstanceRemoteException e) {
-                LOG.error(e);
-            }
         }
     }
 
@@ -212,12 +208,13 @@ public class EmbeddedBackend implements MessagingBackend {
         public void run() {
             LOG.info("Running service discovery...");
             try {
+                List<String> tmp = new ArrayList<>();
                 JmDNS jmdns = JmDNS.create(InetAddress.getLocalHost());
                 ServiceInfo[] serviceInfos = jmdns.list("_paperboy-http._tcp.local.", 6000);
                 if (serviceInfos.length == 0) {
+                    embeddedBackendServices = tmp;
                     LOG.error("No embedded backend found!");
                 } else {
-                    List<String> tmp = new ArrayList<>();
                     for (ServiceInfo info : serviceInfos) {
                         String host = "localhost";
                         if (info.getHostAddresses() != null && info.getHostAddresses().length > 0) {
