@@ -57,10 +57,12 @@ public class EmbeddedBackend implements MessagingBackend {
             httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
             try (final DatagramSocket socket = new DatagramSocket()) {
                 socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
+                // we need a real local address for callbacks (url pointing to a rest endpoint on the webapp is sent to the embedded backend for callbacks)
+                // should be wired onto this.messageCallback(topic, msg, providedEmbeddedBackendToken)
                 localAddress = socket.getLocalAddress().getHostAddress();
             }
             objectMapper = new ObjectMapper();
-            new ServiceDiscoveryTask().run(); // first we run synchronously, then schedule it
+            new ServiceDiscoveryTask().run(); // first we run synchronously, then schedule service discovery
             serviceDiscoveryExecutor.scheduleWithFixedDelay(new ServiceDiscoveryTask(), 10, 10, TimeUnit.SECONDS);
         } catch (IOException e) {
             new UncheckedIOException(e);
@@ -70,6 +72,7 @@ public class EmbeddedBackend implements MessagingBackend {
     @Override
     public void publish(String topic, Object msg) {
         LOG.info(String.format("Publishing message on topic '%s'.", topic));
+        // writes are sent to all nodes
         callAllServices("/pushMessage/" + topic, msg);
     }
 
@@ -77,17 +80,25 @@ public class EmbeddedBackend implements MessagingBackend {
     public void listen(String queue, MessageHandler messageHandler) {
         LOG.info(String.format("Listening for messages on topic '%s'.", queue));
         messageHandlers.put(queue, messageHandler);
-        Caller caller = new Caller(localAddress, 8080, "/messageCallback/" + queue);
+        Caller caller = new Caller(localAddress, 8080, "/messageCallback/" + queue); // for callback
         try {
-            String service = nextService();
-            String instanceId = instanceIdFor(service);
+            String service = nextService(); // pick a service from the pool in a round-robin fashion
+            String instanceId = instanceIdFor(service); // instanceId is unique to each embedded node
             callService(service, "/subscribeTopic/" + queue, caller);
+            // scheduling listener task so that in case of the embedded node fails we re-register on an alive node
             listenerExecutor.scheduleWithFixedDelay(new ListenerTask(queue, caller, service, instanceId), 2, 2, TimeUnit.SECONDS);
         } catch (EmbeddedInstanceRemoteException e) {
             LOG.error(e);
         }
     }
 
+    /**
+     * The embedded backend calls the application back when a message is received on a topic it is listening on.
+     *
+     * @param topic
+     * @param msg
+     * @param providedEmbeddedBackendToken
+     */
     public void messageCallback(String topic, Object msg, String providedEmbeddedBackendToken) {
         LOG.info(String.format("Message callback on topic '%s'.", topic));
         if (!this.embeddedBackendToken.equals(providedEmbeddedBackendToken)) {
@@ -200,24 +211,25 @@ public class EmbeddedBackend implements MessagingBackend {
         public void run() {
             LOG.info("Running service discovery...");
             try {
-                List<String> tmp = new ArrayList<>();
                 JmDNS jmdns = JmDNS.create(InetAddress.getLocalHost());
                 ServiceInfo[] serviceInfos = jmdns.list("_paperboy-http._tcp.local.", 6000);
                 if (serviceInfos.length == 0) {
-                    throw new IllegalStateException("No embedded backend found!");
-                }
-                for (ServiceInfo info : serviceInfos) {
-                    String host = "localhost";
-                    if (info.getHostAddresses() != null && info.getHostAddresses().length > 0) {
-                        host = info.getHostAddresses()[0];
+                    log.error("No embedded backend found!");
+                } else {
+                    List<String> tmp = new ArrayList<>();
+                    for (ServiceInfo info : serviceInfos) {
+                        String host = "localhost";
+                        if (info.getHostAddresses() != null && info.getHostAddresses().length > 0) {
+                            host = info.getHostAddresses()[0];
+                        }
+                        LOG.info(String.format("Discovered embedded backend instance on paperboy node '%s:%d'.", host, info.getPort()));
+                        tmp.add("http://" + host + ":" + info.getPort());
                     }
-                    LOG.info(String.format("Discovered embedded backend instance on paperboy node '%s:%d'.", host, info.getPort()));
-                    tmp.add("http://" + host + ":" + info.getPort());
+                    embeddedBackendServices = tmp;
                 }
-                embeddedBackendServices = tmp;
                 jmdns.close();
             } catch (IOException e) {
-                throw new UncheckedIOException(e);
+                LOG.error(e);
             }
         }
     }
@@ -241,20 +253,23 @@ public class EmbeddedBackend implements MessagingBackend {
             try {
                 String currentInstanceId = instanceIdFor(this.service);
                 if (!this.instanceId.equals(currentInstanceId)) {
+                    // in case an embedded service with the same name exists but it's actually a new instance
                     LOG.info(String.format("Embedded service '%s' has new instance id '%s' -> '%s'.", service, instanceId, currentInstanceId));
                     this.instanceId = currentInstanceId;
                     callService(this.service, "/subscribeTopic/" + queue, caller);
                 }
             } catch (EmbeddedInstanceRemoteException e) {
-                String currentService = nextService();
+                // in case the embedded instance we currently listing on has failed
+                String currentService = nextService(); // we try picking another one
                 LOG.info(String.format("Switching from unusable embedded service '%s' -> '%s'.", service, currentService));
-                this.service = currentService;
+                this.service = currentService; // switching onto the new one
                 this.instanceId = "N/A";
                 try {
-                    String currentInstanceId = instanceIdFor(currentService);
+                    String currentInstanceId = instanceIdFor(currentService); // instanceId for the new one
                     this.instanceId = currentInstanceId;
                     callService(this.service, "/subscribeTopic/" + queue, caller);
                 } catch (EmbeddedInstanceRemoteException ee) {
+                    // in case the new one is also failing (in the next iteration we will try picking a new one again...and again...)
                     LOG.error(ee);
                 }
             }
