@@ -35,16 +35,19 @@ public class EmbeddedBackend implements MessagingBackend {
     private HttpClient httpClient;
     private String embeddedBackendToken;
     private ObjectMapper objectMapper;
-    private ScheduledExecutorService executorService;
+    private ScheduledExecutorService serviceDiscoveryExecutor;
+    private ScheduledExecutorService listenerExecutor;
 
     public EmbeddedBackend(String embeddedBackendToken) {
         this.embeddedBackendToken = embeddedBackendToken;
-        this.executorService = Executors.newScheduledThreadPool(1);
+        this.serviceDiscoveryExecutor = Executors.newScheduledThreadPool(1);
+        this.listenerExecutor = Executors.newScheduledThreadPool(1);
     }
 
     @Override
     public void close() {
-        executorService.shutdown();
+        serviceDiscoveryExecutor.shutdown();
+        listenerExecutor.shutdown();
     }
 
     @Override
@@ -58,7 +61,7 @@ public class EmbeddedBackend implements MessagingBackend {
             }
             objectMapper = new ObjectMapper();
             new ServiceDiscoveryTask().run(); // first we run synchronously, then schedule it
-            executorService.scheduleWithFixedDelay(new ServiceDiscoveryTask(), 10, 10, TimeUnit.SECONDS);
+            serviceDiscoveryExecutor.scheduleWithFixedDelay(new ServiceDiscoveryTask(), 10, 10, TimeUnit.SECONDS);
         } catch (IOException e) {
             new UncheckedIOException(e);
         }
@@ -75,7 +78,14 @@ public class EmbeddedBackend implements MessagingBackend {
         LOG.info(String.format("Listening for messages on topic '%s'.", queue));
         messageHandlers.put(queue, messageHandler);
         Caller caller = new Caller(localAddress, 8080, "/messageCallback/" + queue);
-        callService("/subscribeTopic/" + queue, caller);
+        try {
+            String service = nextService();
+            String instanceId = instanceIdFor(service);
+            callService(service, "/subscribeTopic/" + queue, caller);
+            listenerExecutor.scheduleWithFixedDelay(new ListenerTask(queue, caller, service, instanceId), 2, 2, TimeUnit.SECONDS);
+        } catch (EmbeddedInstanceRemoteException e) {
+            LOG.error(e);
+        }
     }
 
     public void messageCallback(String topic, Object msg, String providedEmbeddedBackendToken) {
@@ -91,20 +101,45 @@ public class EmbeddedBackend implements MessagingBackend {
 
     private void callAllServices(String path, Object msg) {
         for (String service : embeddedBackendServices) {
-            callService(service, path, msg);
+            try {
+                callService(service, path, msg);
+            } catch (EmbeddedInstanceRemoteException e) {
+                LOG.error(e);
+            }
         }
     }
 
-    private void callService(String path, Object msg) {
+    private String nextService() {
         int nextIdx = embeddedBackendServiceIdx.incrementAndGet();
         if (nextIdx >= embeddedBackendServices.size()) {
             embeddedBackendServiceIdx.set(0);
             nextIdx = 0;
         }
-        callService(embeddedBackendServices.get(nextIdx), path, msg);
+        return embeddedBackendServices.get(nextIdx);
     }
 
-    private void callService(String service, String path, Object msg) {
+    private String instanceIdFor(String service) throws EmbeddedInstanceRemoteException {
+        try {
+            HttpRequest post = HttpRequest.newBuilder()
+                    .GET()
+                    .header("PaperboyEmbeddedBackendToken", embeddedBackendToken)
+                    .uri(URI.create(service + "/instance"))
+                    .build();
+            HttpResponse response = httpClient.send(post, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                String instanceId = response.body().toString();
+                LOG.info(String.format("Embedded service '%s' has instance id: '%s'.", service, instanceId));
+                return instanceId;
+            }
+            throw new EmbeddedInstanceRemoteException(String.format("Communication error with service: '%s'!", service));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } catch (InterruptedException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private void callService(String service, String path, Object msg) throws EmbeddedInstanceRemoteException {
         try {
             String url = service + path;
             LOG.info(String.format("Calling service '%s'.", url));
@@ -186,4 +221,43 @@ public class EmbeddedBackend implements MessagingBackend {
             }
         }
     }
+
+    private class ListenerTask implements Runnable {
+
+        private final String queue;
+        private final Caller caller;
+        private volatile String service;
+        private volatile String instanceId;
+
+        public ListenerTask(String queue, Caller caller, String service, String instanceId) {
+            this.queue = queue;
+            this.caller = caller;
+            this.service = service;
+            this.instanceId = instanceId;
+        }
+
+        @Override
+        public void run() {
+            try {
+                String currentInstanceId = instanceIdFor(this.service);
+                if (!this.instanceId.equals(currentInstanceId)) {
+                    LOG.info(String.format("Embedded service '%s' has new instance id '%s' -> '%s'.", service, instanceId, currentInstanceId));
+                    this.instanceId = currentInstanceId;
+                    callService(this.service, "/subscribeTopic/" + queue, caller);
+                }
+            } catch (EmbeddedInstanceRemoteException e) {
+                String currentService = nextService();
+                try {
+                    LOG.info(String.format("Switching from unusable embedded service '%s' -> '%s'.", service, currentService));
+                    String currentInstanceId = instanceIdFor(currentService);
+                    this.service = currentService;
+                    this.instanceId = currentInstanceId;
+                    callService(this.service, "/subscribeTopic/" + queue, caller);
+                } catch (EmbeddedInstanceRemoteException ee) {
+                    LOG.error(ee);
+                }
+            }
+        }
+    }
+
 }
