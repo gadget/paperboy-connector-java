@@ -247,10 +247,10 @@ public class EmbeddedBackend implements MessagingBackend {
                 }
             } catch (EmbeddedInstanceRemoteException e) {
                 String currentService = nextService();
+                LOG.info(String.format("Switching from unusable embedded service '%s' -> '%s'.", service, currentService));
                 this.service = currentService;
                 this.instanceId = "N/A";
                 try {
-                    LOG.info(String.format("Switching from unusable embedded service '%s' -> '%s'.", service, currentService));
                     String currentInstanceId = instanceIdFor(currentService);
                     this.instanceId = currentInstanceId;
                     callService(this.service, "/subscribeTopic/" + queue, caller);
